@@ -2,6 +2,7 @@
 //! Explorer, then GitHub's new-issue form with the version, Windows and phone filled in. Nothing
 //! is sent anywhere by the app: the user reads the file and attaches it.
 
+#[cfg(windows)]
 use std::os::windows::process::CommandExt;
 use std::path::PathBuf;
 use std::process::Command;
@@ -21,13 +22,19 @@ pub fn create(c: &Controller) -> Result<PathBuf, String> {
     log::info!("report saved");
 
     // `/select,"path"` has to reach Explorer unquoted as a whole, which `arg` would do.
+    #[cfg(windows)]
     let _ = Command::new("explorer").raw_arg(format!("/select,\"{}\"", path.display())).spawn();
+    #[cfg(unix)]
+    let _ = Command::new("xdg-open").arg(&dir).spawn();
     let mut url = format!("{NEW_ISSUE}&version={}", encode(env!("CARGO_PKG_VERSION")));
-    url += &format!("&windows={}", encode(&platform::windows_name()));
+    url += &format!("&windows={}", encode(&platform::os_name()));
     if let Some(phone) = c.phone_summary() {
         url += &format!("&phone={}", encode(&phone));
     }
+    #[cfg(windows)]
     let _ = Command::new("explorer").arg(&url).spawn();
+    #[cfg(unix)]
+    let _ = Command::new("xdg-open").arg(&url).spawn();
     Ok(path)
 }
 
@@ -35,7 +42,12 @@ pub fn create(c: &Controller) -> Result<PathBuf, String> {
 pub fn open_log_folder() -> Result<(), String> {
     let dir = diag::log_dir().ok_or("no log folder")?;
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    Command::new("explorer").arg(&dir).spawn().map(drop).map_err(|e| e.to_string())
+    #[cfg(windows)]
+    let mut cmd = Command::new("explorer");
+    #[cfg(unix)]
+    let mut cmd = Command::new("xdg-open");
+    cmd.arg(&dir);
+    cmd.spawn().map(drop).map_err(|e| e.to_string())
 }
 
 fn build(c: &Controller) -> String {
@@ -48,12 +60,13 @@ fn build(c: &Controller) -> String {
         env!("CARGO_PKG_VERSION"),
         if portable::is_portable() { "portable" } else { "installed" }
     );
-    out += &format!("{}\n", platform::windows_name());
+    out += &format!("{}\n", platform::os_name());
     let gpus = platform::gpu_names();
     out += &format!("GPU: {}\n", if gpus.is_empty() { "none found".into() } else { gpus.join("; ") });
     out += &format!(
-        "Camera DLL: {}\n",
-        platform::vcam_registered_path().unwrap_or_else(|| "not registered".into())
+        "{}: {}\n",
+        platform::VCAM_LABEL,
+        platform::vcam_registered_path().unwrap_or_else(|| "not found".into())
     );
     out += &format!("Detailed log: {}\n", if diag::is_detailed() { "on" } else { "off" });
     out += &c.report_facts();

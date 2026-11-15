@@ -9,6 +9,7 @@ use std::process::ExitCode;
 
 use plugcam::adb::Adb;
 use plugcam::pipeline::{Pipeline, PipelineConfig};
+#[cfg(windows)]
 use plugcam::resources;
 use plugcam::scrcpy::protocol::ControlMessage;
 use plugcam::scrcpy::server::{self, CameraParams, Facing};
@@ -136,8 +137,14 @@ fn run(args: Args) -> Result<(), String> {
         return Ok(());
     }
 
-    let dll = resources::vcam_dll().ok_or("plugcam_cam.dll not found (build vcam or set PLUGCAM_VCAM_DLL)")?;
-    let vcam = VirtualCamera::create(&dll, args.vcam_size.0, args.vcam_size.1).map_err(|e| e.to_string())?;
+    #[cfg(windows)]
+    let vcam = {
+        let dll = resources::vcam_dll().ok_or("plugcam_cam.dll not found (build vcam or set PLUGCAM_VCAM_DLL)")?;
+        VirtualCamera::create(&dll, args.vcam_size.0, args.vcam_size.1).map_err(|e| e.to_string())?
+    };
+    #[cfg(unix)]
+    let vcam = VirtualCamera::create(std::path::Path::new(""), args.vcam_size.0, args.vcam_size.1)
+        .map_err(|e| e.to_string())?;
     log::info!("Plugcam Camera is up at {}x{}", vcam.width(), vcam.height());
 
     let mut mirror = args.mirror;

@@ -19,6 +19,7 @@ pub fn find(name: &str, env_override: &str) -> Option<PathBuf> {
 }
 
 /// The camera DLL: bundled or `PLUGCAM_VCAM_DLL`, else the development build in `vcam/dist`.
+#[cfg(windows)]
 pub fn vcam_dll() -> Option<PathBuf> {
     find("plugcam_cam.dll", "PLUGCAM_VCAM_DLL").or_else(|| {
         let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(r"..\vcam\dist\bin\x64\plugcam_cam.dll");

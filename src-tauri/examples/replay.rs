@@ -71,6 +71,7 @@ fn main() {
 }
 
 /// Private bytes of this process in MB: current and peak.
+#[cfg(windows)]
 fn private_mb() -> (usize, usize) {
     use windows::Win32::System::ProcessStatus::{GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX};
     use windows::Win32::System::Threading::GetCurrentProcess;
@@ -80,7 +81,23 @@ fn private_mb() -> (usize, usize) {
     (c.PrivateUsage >> 20, c.PeakPagefileUsage >> 20)
 }
 
+/// Same from /proc: resident and peak virtual set, in MB.
+#[cfg(unix)]
+fn private_mb() -> (usize, usize) {
+    let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
+    let kb = |field: &str| -> usize {
+        status
+            .lines()
+            .find(|l| l.starts_with(field))
+            .and_then(|l| l.split_whitespace().nth(1))
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0)
+    };
+    (kb("VmRSS:") / 1024, kb("VmPeak:") / 1024)
+}
+
 /// User + kernel time of this process so far.
+#[cfg(windows)]
 fn process_cpu() -> Duration {
     use windows::Win32::Foundation::FILETIME;
     use windows::Win32::System::Threading::{GetCurrentProcess, GetProcessTimes};
@@ -88,6 +105,17 @@ fn process_cpu() -> Duration {
     unsafe { GetProcessTimes(GetCurrentProcess(), &mut a, &mut b, &mut kernel, &mut user).unwrap() };
     let ticks = |t: FILETIME| (t.dwHighDateTime as u64) << 32 | t.dwLowDateTime as u64;
     Duration::from_nanos((ticks(kernel) + ticks(user)) * 100)
+}
+
+/// Same from /proc/self/stat: utime + stime, clock ticks at 100 Hz.
+#[cfg(unix)]
+fn process_cpu() -> Duration {
+    let stat = std::fs::read_to_string("/proc/self/stat").unwrap_or_default();
+    let Some((_, rest)) = stat.rsplit_once(')') else { return Duration::ZERO };
+    let fields: Vec<&str> = rest.split_whitespace().collect();
+    let ticks: u64 = fields.get(11).and_then(|v| v.parse().ok()).unwrap_or(0)
+        + fields.get(12).and_then(|v| v.parse().ok()).unwrap_or(0);
+    Duration::from_millis(ticks * 10)
 }
 
 fn write_bmp(path: &str, w: u32, h: u32, bgr: &[u8]) {

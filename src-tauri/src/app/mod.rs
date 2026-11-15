@@ -43,7 +43,7 @@ pub fn run() {
                 "Plugcam {} ({}), {}",
                 env!("CARGO_PKG_VERSION"),
                 if portable { "portable" } else { "installed" },
-                crate::platform::windows_name()
+                crate::platform::os_name()
             );
             app.manage(controller.clone());
             tray::create(app.handle(), &controller.snapshot())?;
@@ -297,7 +297,11 @@ fn open_url(url: String) -> Result<(), String> {
     if !url.starts_with("https://") {
         return Err("only https links".into());
     }
-    std::process::Command::new("explorer").arg(&url).spawn().map(drop).map_err(|e| e.to_string())
+    #[cfg(windows)]
+    let opened = std::process::Command::new("explorer").arg(&url).spawn().map(drop);
+    #[cfg(unix)]
+    let opened = std::process::Command::new("xdg-open").arg(&url).spawn().map(drop);
+    opened.map_err(|e| e.to_string())
 }
 
 /// "Save report…": writes the report to Downloads, shows it in Explorer, opens the issue form.

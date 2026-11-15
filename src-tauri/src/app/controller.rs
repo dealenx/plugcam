@@ -26,7 +26,9 @@ use crate::settings::{Settings, VCAM_SIZES};
 use crate::vcam::VirtualCamera;
 use crate::wifi::{self, QrPairing};
 use super::i18n;
-use crate::{platform, portable, resources};
+#[cfg(windows)]
+use crate::resources;
+use crate::{platform, portable};
 
 const DEVICE_POLL: Duration = Duration::from_millis(1500);
 /// After this long without zoom messages, the zoom the phone reported is trusted over the
@@ -215,11 +217,11 @@ impl Controller {
         let server_file = server::server_file().map_err(|e| e.to_string());
         let registered = platform::vcam_registered_path().is_some();
         let problem = if adb.is_none() {
-            Some("adb.exe not found".to_string())
+            Some("adb not found (bundled, PLUGCAM_ADB or PATH)".to_string())
         } else if let Err(e) = &server_file {
             Some(e.clone())
         } else if !registered && !portable::is_portable() {
-            Some("Plugcam Camera is not installed (camera DLL not registered)".to_string())
+            Some(platform::VCAM_PROBLEM.to_string())
         } else {
             None
         };
@@ -262,7 +264,7 @@ impl Controller {
             qr_counter: AtomicU64::new(0),
             forgotten: Arc::new(Mutex::new(forgotten)),
             paired: Mutex::new(None),
-            mica: platform::windows_build() >= 22000,
+            mica: platform::os_build() >= 22000,
             system_locale: sys_locale::get_locale().unwrap_or_default(),
         });
 
@@ -484,9 +486,12 @@ impl Controller {
             st.vcam = None; // size changed: apps will reopen the device
         }
         if st.vcam.is_none() {
+            #[cfg(windows)]
             let created = resources::vcam_dll()
                 .ok_or_else(|| "plugcam_cam.dll not found".to_string())
                 .and_then(|dll| VirtualCamera::create(&dll, size.0, size.1).map_err(|e| e.to_string()));
+            #[cfg(unix)]
+            let created = VirtualCamera::create(std::path::Path::new(""), size.0, size.1).map_err(|e| e.to_string());
             match created {
                 Ok(v) => st.vcam = Some(v),
                 Err(message) => {
@@ -726,17 +731,23 @@ impl Controller {
     /// Portable only: adds "Plugcam Camera" to Windows or removes it, after Windows' consent
     /// prompt. The camera is turned off before removing.
     pub fn set_camera_registered(&self, on: bool) -> Result<(), String> {
+        #[cfg(unix)]
+        {
+            let _ = on;
+            Err(format!("on Linux the camera is a kernel module: {}", platform::VCAM_PROBLEM))
+        }
+        #[cfg(windows)]
         if !portable::is_portable() {
             return Err("the installer manages the camera".into());
         }
-        if !on {
-            self.set_camera_on(false);
+        #[cfg(windows)]
+        {
+            let result = portable::set_camera_registered(on);
+            let mut st = self.state.lock().unwrap();
+            st.camera_missing = platform::vcam_registered_path().is_none();
+            self.publish(&mut st);
+            result
         }
-        let result = portable::set_camera_registered(on);
-        let mut st = self.state.lock().unwrap();
-        st.camera_missing = platform::vcam_registered_path().is_none();
-        self.publish(&mut st);
-        result
     }
 
     fn save(&self, settings: &Settings) {
@@ -850,7 +861,7 @@ impl Controller {
     }
 
     fn adb(&self) -> Result<Adb, String> {
-        self.adb.clone().ok_or_else(|| "adb.exe not found".to_string())
+        self.adb.clone().ok_or_else(|| "adb not found".to_string())
     }
 
     /// Picks the phone to use (`None`: the first ready one, USB first). A Wi-Fi phone is stored

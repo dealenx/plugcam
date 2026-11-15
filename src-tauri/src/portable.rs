@@ -5,14 +5,20 @@
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
+#[cfg(windows)]
 use std::time::Duration;
 
+#[cfg(windows)]
 use windows::Win32::Foundation::{CloseHandle, WAIT_OBJECT_0};
+#[cfg(windows)]
 use windows::Win32::System::Threading::{
     GetExitCodeProcess, INFINITE, OpenProcess, PROCESS_SYNCHRONIZE, WaitForSingleObject,
 };
+#[cfg(windows)]
 use windows::Win32::UI::Shell::{SEE_MASK_NOCLOSEPROCESS, SHELLEXECUTEINFOW, ShellExecuteExW};
+#[cfg(windows)]
 use windows::Win32::UI::WindowsAndMessaging::SW_HIDE;
+#[cfg(windows)]
 use windows::core::{HSTRING, PCWSTR, w};
 
 /// Its presence next to the exe turns the portable mode on.
@@ -45,29 +51,37 @@ pub fn data_dir() -> PathBuf {
 
 /// Runs before the app starts. Returns an exit code when this process only had a helper job.
 pub fn handle_args() -> Option<i32> {
-    let args: Vec<String> = std::env::args().collect();
-    let value = |name: &str| args.iter().position(|a| a == name).and_then(|i| args.get(i + 1));
-    if let Some(action) = value(CAMERA_ARG) {
-        return Some(match run_regsvr32(action == "unregister") {
-            Ok(()) => 0,
-            Err(e) => {
-                log::error!("camera {action}: {e}");
-                1
-            }
-        });
+    #[cfg(windows)]
+    {
+        let args: Vec<String> = std::env::args().collect();
+        let value = |name: &str| args.iter().position(|a| a == name).and_then(|i| args.get(i + 1));
+        if let Some(action) = value(CAMERA_ARG) {
+            return Some(match run_regsvr32(action == "unregister") {
+                Ok(()) => 0,
+                Err(e) => {
+                    log::error!("camera {action}: {e}");
+                    1
+                }
+            });
+        }
+        if let Some(pid) = value(WAIT_PID_ARG).and_then(|p| p.parse::<u32>().ok()) {
+            wait_for_exit(pid, Duration::from_secs(15));
+        }
+        if is_portable() {
+            let webview = data_dir().join("webview");
+            // Read by WebView2 when the window is created; nothing else runs yet.
+            unsafe { std::env::set_var("WEBVIEW2_USER_DATA_FOLDER", webview) };
+            remove_old_files(exe_dir());
+        }
     }
-    if let Some(pid) = value(WAIT_PID_ARG).and_then(|p| p.parse::<u32>().ok()) {
-        wait_for_exit(pid, Duration::from_secs(15));
-    }
+    #[cfg(unix)]
     if is_portable() {
-        let webview = data_dir().join("webview");
-        // Read by WebView2 when the window is created; nothing else runs yet.
-        unsafe { std::env::set_var("WEBVIEW2_USER_DATA_FOLDER", webview) };
         remove_old_files(exe_dir());
     }
     None
 }
 
+#[cfg(windows)]
 fn wait_for_exit(pid: u32, timeout: Duration) {
     unsafe {
         if let Ok(process) = OpenProcess(PROCESS_SYNCHRONIZE, false, pid) {
@@ -77,6 +91,7 @@ fn wait_for_exit(pid: u32, timeout: Duration) {
     }
 }
 
+#[cfg(windows)]
 /// The two camera DLLs: x64 for 64-bit apps, x86 for 32-bit ones.
 fn camera_dlls() -> Result<(PathBuf, Option<PathBuf>), String> {
     let x64 = crate::resources::find("plugcam_cam.dll", "PLUGCAM_VCAM_DLL").ok_or("plugcam_cam.dll not found")?;
@@ -84,6 +99,7 @@ fn camera_dlls() -> Result<(PathBuf, Option<PathBuf>), String> {
     Ok((x64, x86))
 }
 
+#[cfg(windows)]
 /// Registers or removes "Plugcam Camera"; needs administrator rights.
 fn run_regsvr32(unregister: bool) -> Result<(), String> {
     let (x64, x86) = camera_dlls()?;
@@ -106,6 +122,7 @@ fn run_regsvr32(unregister: bool) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(windows)]
 /// Starts this exe as administrator to register (or remove) the camera and waits for it.
 /// Windows shows its consent prompt; saying no is an error too.
 pub fn set_camera_registered(on: bool) -> Result<(), String> {
@@ -235,7 +252,7 @@ fn remove_old_files(dir: &Path) {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, windows))]
 mod tests {
     use super::*;
 

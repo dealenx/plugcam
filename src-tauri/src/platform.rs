@@ -7,6 +7,10 @@ use windows::core::{HSTRING, PCWSTR};
 
 /// Must match `CLSID_DShowSoftcam` in vcam/src/softcam/softcam.cpp.
 pub const VCAM_CLSID: &str = "{518D4949-2206-4A92-B74A-6CF1C7348605}";
+/// What the status shows when the virtual camera is missing.
+pub const VCAM_PROBLEM: &str = "Plugcam Camera is not installed (camera DLL not registered)";
+/// What a bug report calls the virtual camera.
+pub const VCAM_LABEL: &str = "Camera DLL";
 
 fn reg_string(root: HKEY, key: &str, value: Option<&str>) -> Option<String> {
     let key = HSTRING::from(key);
@@ -29,15 +33,15 @@ pub fn vcam_registered_path() -> Option<String> {
 }
 
 /// Windows build number (22000+ is Windows 11), 0 if unknown.
-pub fn windows_build() -> u32 {
+pub fn os_build() -> u32 {
     reg_string(HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion", Some("CurrentBuildNumber"))
         .and_then(|b| b.parse().ok())
         .unwrap_or(0)
 }
 
 /// e.g. `Windows 11 24H2 (build 26100)`.
-pub fn windows_name() -> String {
-    let build = windows_build();
+pub fn os_name() -> String {
+    let build = os_build();
     let release = reg_string(HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion", Some("DisplayVersion"));
     let major = if build >= 22000 { 11 } else { 10 };
     match release {
@@ -84,9 +88,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn reads_windows_build() {
-        assert!(windows_build() >= 10240, "Windows 10 or later");
-        assert!(windows_name().starts_with("Windows 1"));
+    fn reads_os_build() {
+        assert!(os_build() >= 10240, "Windows 10 or later");
+        assert!(os_name().starts_with("Windows 1"));
     }
 
     #[test]

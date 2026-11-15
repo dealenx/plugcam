@@ -36,9 +36,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": [
-      "nsis"
-    ],
+    "targets": "all",
     "publisher": "Maxim Esipov",
     "copyright": "© 2026 Maxim Esipov. Apache-2.0.",
     "homepage": "https://github.com/Qwinty/plugcam",
