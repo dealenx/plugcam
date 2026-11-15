@@ -33,5 +33,6 @@ pub fn downloads_dir() -> Option<PathBuf> {
 /// Path of the loopback device feeding "Plugcam Camera", if the module is loaded.
 pub fn vcam_registered_path() -> Option<String> {
     let path = crate::vcam::device_path();
-    path.is_file().then(|| path.display().to_string())
+    // is_file() is false for /dev/* character devices; presence is what we need.
+    path.exists().then(|| path.display().to_string())
 }
