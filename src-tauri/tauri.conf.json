@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Plugcam",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "identifier": "io.github.plugcam",
   "build": {
     "beforeDevCommand": "pnpm dev",
@@ -39,7 +39,7 @@
     "targets": "all",
     "publisher": "Maxim Esipov",
     "copyright": "© 2026 Maxim Esipov. Apache-2.0.",
-    "homepage": "https://github.com/Qwinty/plugcam",
+    "homepage": "https://github.com/dealenx/plugcam",
     "category": "Video",
     "shortDescription": "Your Android phone as a webcam",
     "longDescription": "Plugcam turns an Android phone's camera into a Windows webcam over USB: no app on the phone, no watermarks, free and open source.",
@@ -83,9 +83,9 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEIwRkZCNjc1QzhERjY3RkQKUldUOVo5L0lkYmIvc0lsendDRHZWczF4Q1IwZUZuamhhQ1gvaVVzMkpYUTR4M0wybGd6YVgwOGMK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDgxNzQxOEVFRDQ3NDVBQkMKUldTOFduVFU3aGgwZ2FYc0FGeTVobHhJWUlJMkdBUXZLVG5xNjhlRDAyQ1RjaVI2UTdvMXYwTWcK",
       "endpoints": [
-        "https://github.com/Qwinty/plugcam/releases/latest/download/latest.json"
+        "https://github.com/dealenx/plugcam/releases/latest/download/latest.json"
       ],
       "requireSignedVersion": true,
       "windows": {

@@ -10,7 +10,7 @@ use std::process::Command;
 use super::Controller;
 use crate::{diag, platform, portable};
 
-const NEW_ISSUE: &str = "https://github.com/Qwinty/plugcam/issues/new?template=bug.yml";
+const NEW_ISSUE: &str = "https://github.com/dealenx/plugcam/issues/new?template=bug.yml";
 
 /// Saves the report and opens Explorer and the issue form. Returns the file's path.
 pub fn create(c: &Controller) -> Result<PathBuf, String> {

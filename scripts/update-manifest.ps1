@@ -1,13 +1,13 @@
 # Writes latest.json, the updater manifest attached to every release: the version, its notes and,
 # per target, the download URL and signature. The app reads it from
-# https://github.com/Qwinty/plugcam/releases/latest/download/latest.json
+# https://github.com/dealenx/plugcam/releases/latest/download/latest.json
 #   windows-x86_64            the installer (installed copies)
 #   windows-x86_64-portable   the portable zip (see portable.ps1)
 #
 #   .\scripts\update-manifest.ps1 -Tag v0.2.0 [-BaseUrl http://127.0.0.1:8000] [-Out latest.json]
 param(
     [Parameter(Mandatory)][string]$Tag,
-    [string]$BaseUrl = "https://github.com/Qwinty/plugcam/releases/download/$Tag",
+    [string]$BaseUrl = "https://github.com/dealenx/plugcam/releases/download/$Tag",
     [string]$Out
 )
 $ErrorActionPreference = 'Stop'

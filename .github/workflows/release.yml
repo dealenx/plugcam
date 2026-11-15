@@ -79,3 +79,49 @@ jobs:
           } else {
             gh release create $tag @files --draft --title "Plugcam $tag" --generate-notes
           }
+
+  linux:
+    needs: installer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Linux system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Tests
+        working-directory: src-tauri
+        run: cargo test --release
+
+      - name: Deb and AppImage
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm tauri build
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bundle=src-tauri/target/release/bundle
+          files=$(find "$bundle/deb" "$bundle/appimage" -type f ! -name "*.sig" 2>/dev/null)
+          for f in $files; do
+            sha256sum "$f" | sed "s|  .*|  $(basename "$f")|" > "$f.sha256"
+          done
+          sigs=$(find "$bundle/deb" "$bundle/appimage" -name "*.sig" 2>/dev/null || true)
+          gh release upload "${{ github.ref_name }}" $files $sigs --clobber
