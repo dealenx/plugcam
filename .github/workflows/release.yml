@@ -119,9 +119,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           bundle=src-tauri/target/release/bundle
-          files=$(find "$bundle/deb" "$bundle/appimage" -type f ! -name "*.sig" 2>/dev/null)
+          files=$(find "$bundle/deb" "$bundle/appimage" -type f ! -name "*.sig" ! -name ".*" ! -size 0 2>/dev/null)
           for f in $files; do
             sha256sum "$f" | sed "s|  .*|  $(basename "$f")|" > "$f.sha256"
           done
-          sigs=$(find "$bundle/deb" "$bundle/appimage" -name "*.sig" 2>/dev/null || true)
+          sigs=$(find "$bundle/deb" "$bundle/appimage" -name "*.sig" ! -size 0 2>/dev/null || true)
           gh release upload "${{ github.ref_name }}" $files $sigs --clobber
