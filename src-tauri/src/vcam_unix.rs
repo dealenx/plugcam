@@ -18,7 +18,10 @@ pub enum VcamError {
     Open { path: String, source: std::io::Error },
     #[error("width and height must be positive multiples of 4, got {0}x{1}")]
     BadSize(u32, u32),
-    #[error("{path} does not accept {width}x{height} BGR3 (is v4l2loopback loaded?)")]
+    #[error(
+        "{path} does not accept {width}x{height} BGR3 — another app (e.g. OBS) has the \
+         camera open with a different size; close it or match {width}x{height} in its settings"
+    )]
     Format { path: String, width: u32, height: u32 },
 }
 
